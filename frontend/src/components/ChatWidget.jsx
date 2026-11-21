@@ -16,7 +16,7 @@ import { sendChatMessage } from '../services/api';
 const INITIAL_GREETING = {
   id: 'init-1',
   sender: 'bot',
-  text: 'Hello! I am your AI Library Assistant. Ask me about books in our collection, recommendations, or borrowing policies.',
+  text: 'Hello! I am the QueryMind Library Assistant. Ask me about books in our collection, recommendations, or borrowing policies.',
   timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
 };
 

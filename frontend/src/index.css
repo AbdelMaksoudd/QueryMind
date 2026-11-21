@@ -27,3 +27,29 @@
   background: #94a3b8;
 }
 
+/* Invoice printing */
+@media print {
+  @page {
+    margin: 16mm;
+  }
+
+  body {
+    background: #ffffff !important;
+  }
+
+  .no-print,
+  header,
+  footer {
+    display: none !important;
+  }
+
+  #invoice {
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+  }
+}
+
