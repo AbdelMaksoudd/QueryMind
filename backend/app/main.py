@@ -1,60 +1,73 @@
-from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+"""FastAPI application setup."""
 
-from app.config import settings
+import logging
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from app.api.admin import router as admin_router
+from app.api.auth import router as auth_router
 from app.api.books import router as books_router
 from app.api.chat import router as chat_router
+from app.api.health import router as health_router
+from app.api.loans import router as loans_router
+from app.api.users import router as users_router
+from app.config import settings
+from app.database import check_database
+from app.exceptions import LibraryError
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Application lifespan handler:
-    Runs in READ-ONLY mode for database interactions.
-    Does not attempt to create tables or modify/seed the database.
-    """
-    print("[STARTUP] Library API running in READ-ONLY mode.")
-    print("[STARTUP] Connected to database for query/read operations.")
+    logging.basicConfig(level=logging.INFO)
+    logger.info("Starting %s v%s", settings.PROJECT_NAME, settings.VERSION)
+    if check_database():
+        logger.info("Database connection verified.")
+    else:
+        logger.warning("Database is unreachable at startup; check DATABASE_URL.")
     yield
-    print("[SHUTDOWN] Application shutdown complete.")
+    logger.info("Shutdown complete.")
 
 
-# Initialize FastAPI App
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="Backend API for Book Borrowing & Library Management with AI Chat Assistant placeholder.",
-    lifespan=lifespan
+    description="Library catalog, borrowing and AI assistant API backed by PostgreSQL.",
+    lifespan=lifespan,
 )
 
-# Configure CORS Middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS if isinstance(settings.CORS_ORIGINS, list) else [settings.CORS_ORIGINS],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Register API Routers
-app.include_router(books_router, prefix="/api")
-app.include_router(chat_router, prefix="/api")
+
+@app.exception_handler(LibraryError)
+async def library_error_handler(request: Request, exc: LibraryError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": str(exc)})
 
 
-@app.get("/", tags=["Health Check"])
+app.include_router(health_router)
+app.include_router(auth_router, prefix=settings.API_PREFIX)
+app.include_router(books_router, prefix=settings.API_PREFIX)
+app.include_router(users_router, prefix=settings.API_PREFIX)
+app.include_router(loans_router, prefix=settings.API_PREFIX)
+app.include_router(chat_router, prefix=settings.API_PREFIX)
+app.include_router(admin_router, prefix=settings.API_PREFIX)
+
+
+@app.get("/", tags=["Health"])
 def root():
     return {
         "status": "online",
         "service": settings.PROJECT_NAME,
-        "docs_url": "/docs"
+        "version": settings.VERSION,
+        "docs_url": "/docs",
     }
-
-
-@app.get("/api/health", tags=["Health Check"])
-def health_check():
-    return {
-        "status": "healthy",
-        "cors_origins": settings.CORS_ORIGINS
-    }
-
